@@ -1,4 +1,8 @@
 from dataclasses import dataclass
+from functools import lru_cache
+from typing import Protocol
+
+# from functools import cached_property
 
 from email_tools.service import EmailService
 
@@ -7,6 +11,25 @@ PORT = 465
 EMAIL = "hi@arjancodes.com"
 PASSWORD = "password"
 
+@lru_cache
+def bmi(weight: float, height: float) -> float:
+    return weight / (height**2)
+
+@lru_cache
+def bmi_category(bmi_value) -> str:
+    if bmi_value < 18.5:
+        return "Underweight"
+    elif bmi_value < 25:
+        return "Normal"
+    elif bmi_value < 30:
+        return "Overweight"
+    else:
+        return "Obese"
+
+
+class EmailSender(Protocol):
+    def send_message(self, to_email: str, subject: str, body: str) -> None:
+        ...
 
 @dataclass
 class Stats:
@@ -18,18 +41,22 @@ class Stats:
     eye_color: str
     hair_color: str
 
-    def get_bmi(self) -> float:
+    """
+    @cached_property
+    def bmi(self) -> float:
         return self.weight / (self.height**2)
 
-    def get_bmi_category(self) -> str:
-        if self.get_bmi() < 18.5:
+    @property
+    def bmi_category(self) -> str:
+        if self.bmi < 18.5:
             return "Underweight"
-        elif self.get_bmi() < 25:
+        elif self.bmi < 25:
             return "Normal"
-        elif self.get_bmi() < 30:
+        elif self.bmi < 30:
             return "Overweight"
         else:
             return "Obese"
+    """
 
 @dataclass
 class Address:
@@ -39,7 +66,7 @@ class Address:
     country: str
     postal_code: str
 
-    def get_full_address(self) -> str:
+    def __str__(self) -> str:
         return f"{self.address_line_1}, {self.address_line_2}, {self.city}, {self.country}, {self.postal_code}"
 
 @dataclass
@@ -50,13 +77,13 @@ class Person:
     address: Address
     stats: Stats
 
+    @property
     def split_name(self) -> tuple[str, str]:
         first_name, last_name = self.name.split(" ")
         return first_name, last_name
 
-    def update_email(self, email: str) -> None:
+    def update_email(self, email: str, email_service: EmailSender) -> None:
         self.email = email
-        email_service = EmailService(SMTP_SERVER, PORT, EMAIL, PASSWORD)
         email_service.send_message(
             self.email,
             "Your email has been updated.",
@@ -96,12 +123,13 @@ def main() -> None:
     )
 
     # compute the BMI
-    bmi = person.stats.get_bmi()
-    print(f"Your BMI is {bmi:.2f}")
-    print(f"Your BMI category is {person.stats.get_bmi_category()}")
+    bmi_value = bmi(stats.weight, stats.height)
+    print(f"Your BMI is {bmi_value:.2f}")
+    print(f"Your BMI category is {bmi_category(bmi_value)}")
 
     # update the email address
-    person.update_email("johndoe@outlook.com")
+    email_service = EmailService(SMTP_SERVER, PORT, EMAIL, PASSWORD)
+    person.update_email("johndoe@outlook.com", email_service)
 
 
 if __name__ == "__main__":
