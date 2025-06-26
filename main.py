@@ -1,10 +1,20 @@
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import lru_cache, partial
 from typing import Protocol
+
+# from typing import Callable
 
 # from functools import cached_property
 
-from email_tools.service import EmailService
+# from email_tools.service import EmailService
+from email_tools.service_v2 import send_email
+
+
+class EmailSender(Protocol):
+    def __call__(self, to_email: str, subject: str, body: str) -> None:
+        ...
+
+# EmailSender = Callable[[str, str, str], None]
 
 SMTP_SERVER = "smtp.gmail.com"
 PORT = 465
@@ -25,11 +35,6 @@ def bmi_category(bmi_value) -> str:
         return "Overweight"
     else:
         return "Obese"
-
-
-class EmailSender(Protocol):
-    def send_message(self, to_email: str, subject: str, body: str) -> None:
-        ...
 
 @dataclass
 class Stats:
@@ -82,12 +87,13 @@ class Person:
         first_name, last_name = self.name.split(" ")
         return first_name, last_name
 
-    def update_email(self, email: str, email_service: EmailSender) -> None:
+    # def update_email(self, email: str, email_service: EmailSender) -> None:
+    def update_email(self, email: str, send_message_fn: EmailSender) -> None:
         self.email = email
-        email_service.send_message(
-            self.email,
-            "Your email has been updated.",
-            "Your email has been updated. If this was not you, you have a problem.",
+        send_message_fn(
+            to_email=self.email,
+            subject="Your email has been updated.",
+            body="Your email has been updated. If this was not you, you have a problem.",
         )
 
 
@@ -128,8 +134,10 @@ def main() -> None:
     print(f"Your BMI category is {bmi_category(bmi_value)}")
 
     # update the email address
-    email_service = EmailService(SMTP_SERVER, PORT, EMAIL, PASSWORD)
-    person.update_email("johndoe@outlook.com", email_service)
+    send_message = partial(send_email, smtp_server=SMTP_SERVER, port=PORT, email=EMAIL, password=PASSWORD)
+    person.update_email("johndoe@outlook.com", send_message)
+    # email_service = EmailService(SMTP_SERVER, PORT, EMAIL, PASSWORD)
+    # person.update_email("johndoe@outlook.com", email_service)
 
 
 if __name__ == "__main__":
